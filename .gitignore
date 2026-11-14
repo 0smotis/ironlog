@@ -1,0 +1,8 @@
+node_modules/
+# never commit the signing key
+*.p12
+*.jks
+*.keystore
+signing/
+.DS_Store
+Thumbs.db

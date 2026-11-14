@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar icon: a barbell (Android tints it white). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M2,10.8h20v2.4h-20z"/>
+    <path android:fillColor="#FFFFFFFF" android:pathData="M4.2,8.2h1.9v7.6h-1.9z M17.9,8.2h1.9v7.6h-1.9z"/>
+    <path android:fillColor="#FFFFFFFF" android:pathData="M6.6,6.2h2.2v11.6h-2.2z M15.2,6.2h2.2v11.6h-2.2z"/>
+</vector>

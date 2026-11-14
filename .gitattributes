@@ -1,0 +1,4 @@
+# Keep the page byte-for-byte as committed, so the phone's checksum check matches what GitHub serves.
+www/** -text
+*.mp3 binary
+*.png binary

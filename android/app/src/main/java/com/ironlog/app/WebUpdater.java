@@ -28,6 +28,8 @@ import java.security.MessageDigest;
  */
 final class WebUpdater {
     static final String REPO_RAW = "https://raw.githubusercontent.com/0smotis/ironlog/main/www/";
+    // Private repo: files come through GitHub's API with the read-only token saved in IronLog's settings.
+    static final String REPO_API = "https://api.github.com/repos/0smotis/ironlog/contents/www/";
 
     private static final String PREFS = "ironlog_updater";
     private static final String CAP_PREFS = "CapWebViewSettings"; // Capacitor's own live-update setting
@@ -74,6 +76,16 @@ final class WebUpdater {
     static String stagedPath(Context c) {
         String p = prefs(c).getString("staged", null);
         return p != null && new File(p, "index.html").exists() ? p : null;
+    }
+
+    static String token(Context c) {
+        return prefs(c).getString("ghToken", "");
+    }
+
+    static void setToken(Context c, String t) {
+        SharedPreferences.Editor e = prefs(c).edit();
+        if (t == null || t.trim().isEmpty()) e.remove("ghToken"); else e.putString("ghToken", t.trim());
+        e.remove("lastError").apply();
     }
 
     private static boolean isBad(Context c, long v) {
@@ -175,7 +187,7 @@ final class WebUpdater {
             String msg = "";
             try {
                 prefs(c).edit().putLong("lastCheck", System.currentTimeMillis()).apply();
-                JSONObject remote = new JSONObject(new String(get(REPO_RAW + "version.json?t=" + System.currentTimeMillis(), 64 * 1024), StandardCharsets.UTF_8));
+                JSONObject remote = new JSONObject(new String(fetch(c, "version.json", 64 * 1024), StandardCharsets.UTF_8));
                 ver = remote.optLong("version", 0);
                 long current = Math.max(runningVersion(c), versionIn(stagedPath(c)));
                 if (ver <= current || isBad(c, ver)) {
@@ -184,7 +196,7 @@ final class WebUpdater {
                 } else {
                     long size = remote.optLong("size", 0);
                     String sha = remote.optString("sha256", "");
-                    byte[] html = get(REPO_RAW + "index.html?v=" + ver, 64L * 1024 * 1024);
+                    byte[] html = fetch(c, "index.html", 64L * 1024 * 1024);
                     if (size > 0 && html.length != size) throw new Exception("Download incomplete (" + html.length + " of " + size + " bytes) — GitHub may still be updating, try again in a few minutes");
                     if (!sha.isEmpty() && !sha.equalsIgnoreCase(sha256(html))) throw new Exception("Download didn't match the published version — GitHub may still be updating, try again in a few minutes");
                     File dir = new File(new File(c.getFilesDir(), "web"), "v" + ver);
@@ -194,8 +206,10 @@ final class WebUpdater {
                     prefs(c).edit().putString("staged", dir.getAbsolutePath()).putString("notes_" + ver, remote.optString("notes", "")).apply();
                     status = "ready";
                 }
+                prefs(c).edit().remove("lastError").apply();
             } catch (Exception e) {
                 msg = e.getMessage() != null ? e.getMessage() : e.toString();
+                prefs(c).edit().putString("lastError", msg).apply();
             } finally {
                 checking = false;
             }
@@ -203,15 +217,50 @@ final class WebUpdater {
         }, "ironlog-updater").start();
     }
 
-    private static byte[] get(String url, long max) throws Exception {
+    /** With a token: GitHub API (works for the private repo). Without one: the public raw address. */
+    private static byte[] fetch(Context c, String file, long max) throws Exception {
+        String t = token(c);
+        if (t.isEmpty()) {
+            try {
+                return get(REPO_RAW + file + "?t=" + System.currentTimeMillis(), max, null);
+            } catch (HttpError e) {
+                if (e.code == 404) throw new Exception("No GitHub token yet — add one under Settings → App updates");
+                throw e;
+            }
+        }
+        try {
+            return get(REPO_API + file + "?ref=main", max, t);
+        } catch (HttpError e) {
+            if (e.code == 401) throw new Exception("GitHub token was rejected or has expired — make a new one and paste it under Settings → App updates");
+            if (e.code == 403 || e.code == 404) throw new Exception("GitHub token can't read the ironlog repo — give it Contents: Read-only access to ironlog");
+            throw e;
+        }
+    }
+
+    static final class HttpError extends Exception {
+        final int code;
+
+        HttpError(int code, String file) {
+            super("GitHub answered " + code + " for " + file);
+            this.code = code;
+        }
+    }
+
+    private static byte[] get(String url, long max, String token) throws Exception {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         conn.setConnectTimeout(15000);
-        conn.setReadTimeout(30000);
+        conn.setReadTimeout(60000);
         conn.setUseCaches(false);
         conn.setRequestProperty("Cache-Control", "no-cache");
+        conn.setRequestProperty("User-Agent", "IronLog-Android");
+        if (token != null) {
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+            conn.setRequestProperty("Accept", "application/vnd.github.raw+json");
+            conn.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
+        }
         try {
             int code = conn.getResponseCode();
-            if (code != 200) throw new Exception("GitHub answered " + code + " for " + url.replace(REPO_RAW, ""));
+            if (code != 200) throw new HttpError(code, url.replace(REPO_RAW, "").replace(REPO_API, "").replaceAll("\\?.*$", ""));
             try (InputStream in = conn.getInputStream()) {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 byte[] buf = new byte[64 * 1024];

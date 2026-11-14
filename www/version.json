@@ -1,6 +1,6 @@
 {
-  "version": 202611140623,
-  "size": 8647005,
-  "sha256": "6617dfbac337bfea1d84ea58b9c5243b0e70ccf4eff3ed73ddbecea69c2700e5",
-  "notes": "Live updates from GitHub, sound pack, lock-screen workout notification"
+  "version": 202611140645,
+  "size": 8648148,
+  "sha256": "b926ef130f71a67f9798978cdbace132402fe624c6e2223cfd4d249fc85702ee",
+  "notes": "Private-repo updates with a GitHub token"
 }

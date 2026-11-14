@@ -130,6 +130,13 @@ public class WorkoutNotificationPlugin extends Plugin {
         });
     }
 
+    /** Saves the read-only GitHub token used to download updates from the private repo (empty clears it). */
+    @PluginMethod
+    public void setToken(PluginCall call) {
+        WebUpdater.setToken(getContext(), call.getString("token", ""));
+        call.resolve();
+    }
+
     @PluginMethod
     public void webInfo(PluginCall call) {
         JSObject r = new JSObject();
@@ -137,6 +144,8 @@ public class WorkoutNotificationPlugin extends Plugin {
         r.put("bundled", WebUpdater.bundledVersion(getContext()));
         r.put("staged", WebUpdater.versionIn(WebUpdater.stagedPath(getContext())));
         r.put("lastCheck", WebUpdater.prefs(getContext()).getLong("lastCheck", 0));
+        r.put("hasToken", !WebUpdater.token(getContext()).isEmpty());
+        r.put("lastError", WebUpdater.prefs(getContext()).getString("lastError", ""));
         try {
             r.put("app", getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0).versionName);
         } catch (Exception e) {

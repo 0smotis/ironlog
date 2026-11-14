@@ -1982,8 +1982,17 @@ function updateCard() {
   return `<div class="card stack" style="gap:10px"><div class="eyebrow">App updates</div>
     <div class="small muted">New versions download from GitHub by themselves and switch in the next time IronLog goes to the background — nothing to tap. Changes to the Android app itself (notifications, permissions, icon) come through Obtainium.</div>
     <div class="small">Page version <b>${esc(fmtWebVer(i.running))}</b>${i.staged ? ` · <span class="pill good">${esc(fmtWebVer(i.staged))} downloaded</span>` : ''}<div class="muted">App ${esc(i.app || '')}${i.lastCheck ? ` · last checked ${fmtDate(i.lastCheck, { month: 'short', day: 'numeric' })} ${fmtTime(i.lastCheck)}` : ''}</div></div>
+    ${i.lastError ? `<div class="small" style="color:var(--warn)">${esc(i.lastError)}</div>` : ''}
+    <div class="field"><label class="lab" for="gh_token">GitHub access token ${i.hasToken ? '<span class="pill good">saved</span>' : '<span class="pill acc">needed for updates</span>'}</label>
+      <div class="row"><input class="f" id="gh_token" type="password" autocomplete="off" spellcheck="false" placeholder="${i.hasToken ? 'Paste a new token to replace it' : 'github_pat_…'}"><button class="btn sm" onclick="A.saveToken()">Save</button></div>
+      <div class="small muted" style="margin-top:4px">Read-only token for the private ironlog repo. Stays on this phone only.</div></div>
     <div class="row"><button class="btn block" onclick="A.checkUpdate()">Check now</button>${i.staged ? '<button class="btn primary block" onclick="A.applyUpdate()">Update now</button>' : ''}</div></div>`;
 }
+A.saveToken = () => {
+  const t = ($('#gh_token').value || '').trim();
+  if (t && !/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(t)) { toast("That doesn't look like a GitHub token — it should start with github_pat_"); return; }
+  wnCall('setToken', { token: t }).then(() => { toast(t ? 'Token saved — checking for updates' : 'Token removed'); if (t) A.checkUpdate(); else updInfo(); }).catch(e => toast('Could not save: ' + (e && e.message || e)));
+};
 A.checkUpdate = () => {
   toast('Checking GitHub…');
   wnCall('checkUpdate').then(r => {
